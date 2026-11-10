@@ -81,6 +81,24 @@ UEFI drivers: `OpenRuntime`, `OpenCanopy`, `ResetNvramEntry`, `HfsPlus`.
 3. **Test from a USB stick** first, then copy `EFI/OC` and `EFI/BOOT` to the EFI partition of the macOS disk.
    Leave `EFI/Microsoft` (the Windows boot loader) alone — it has its own disk identifiers.
 
+## After installing macOS
+
+This machine needs **no separate driver package**: everything the board's hardware needs is already in the EFI
+(Ethernet, Bluetooth, USB, sensors, GPU). macOS doesn't see onboard audio on this board, and there is no Wi-Fi.
+Third-party software comes from the vendors:
+- **Blackmagic DeckLink** — the [Desktop Video](https://www.blackmagicdesign.com/support/family/capture-and-playback) package (driver 12.1 runs here);
+- **Behringer WING** — class-compliant USB audio, no macOS driver needed;
+- **NTFS with write support** — Tuxera NTFS or similar (see [quirks](#quirks) about the Tuxera license).
+
+## After a BIOS reset
+
+`LauncherOption` is disabled here (see [quirks](#quirks)), so after a BIOS reset the board forgets the OpenCore entry and boots Windows
+via "Windows Boot Manager" on the same EFI partition. To restore the entry:
+- **from Windows** — `tools/windows/Restore-OpenCore.cmd` (asks for admin rights itself): creates an "OpenCore" firmware entry
+  (`bcdedit /copy {bootmgr}` + path `\EFI\OC\OpenCore.efi`) and puts it first. Before the first run, set your EFI volume in
+  `restore_opencore.ps1` (how to find it — see the comment at the top of the file);
+- **from the BIOS menu** — add a boot option pointing to `\EFI\OC\OpenCore.efi` on the NVMe EFI partition (if the firmware supports it).
+
 ## Quirks
 
 - **USB.** Ports work via USBInjectAll and `XhciPortLimit` (20 ports with a 15-port limit); there is no dedicated port map.
@@ -92,7 +110,11 @@ UEFI drivers: `OpenRuntime`, `OpenCanopy`, `ResetNvramEntry`, `HfsPlus`.
 - **Tuxera NTFS.** After the NIC was marked built-in, the Tuxera license became invalid (it is bound to the primary network
   interface) — NTFS partitions mount read-only until Tuxera is re-activated.
 
-## Changelog (all on 2026-10-10)
+## Changelog
+
+- **2026-11-10** — "After installing macOS" notes, a Windows script to restore the OpenCore entry after a BIOS reset.
+
+**2026-10-10:**
 
 - Moved from the OpenCore-Mod 1.0.8 fork (from an Olarila/MaLd0n EFI) to the **official OpenCore 1.0.8**: replaced `OpenCore.efi`, `BOOTx64.efi`,
   `OpenRuntime`, `OpenCanopy`, `ResetNvramEntry`, `OpenShell`; removed keys the official build doesn't know (`EnableForAll` ×2,
