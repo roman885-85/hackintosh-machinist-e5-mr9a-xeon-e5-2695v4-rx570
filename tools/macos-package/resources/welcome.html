@@ -1,0 +1,12 @@
+<html><head><meta charset="utf-8"><style>body{font-family:system-ui,-apple-system,Helvetica;font-size:13px}</style></head><body>
+<h2>Драйвери для MACHINIST E5-MR9A · Xeon E5-2695 v4 · Radeon RX 570 (macOS)</h2>
+<p>Пакет ставиться вже після встановлення macOS на комп'ютер, що завантажується через OpenCore з цього репозиторію.</p>
+<ul>
+<li><b>Вбудований звук (VoodooHDA 3.6.8)</b> — лише на macOS 26 і новіших: Apple прибрала AppleHDA, тож звук плати
+(Realtek ALC897) дає VoodooHDA. На macOS 15 і старіших нічого не ставиться.</li>
+<li><b>Спершу BIOS:</b> контролер звуку має бути увімкнений — <i>IntelRCSetup → PCH Configuration → Onboard Azalia → Enabled</i>.
+Якщо він вимкнений, macOS його не бачить і драйверу нема з чим працювати.</li>
+</ul>
+<p>Звук через HDMI відеокарти, USB-пульти (Behringer WING) і карти Blackmagic працюють і без цього пакета.</p>
+<p>Журнал встановлення: <code>/var/log/mr9a-drivers-install.log</code>.</p>
+</body></html>

@@ -1,0 +1,32 @@
+#!/bin/sh
+# MACHINIST E5-MR9A / Xeon E5-2695 v4 / RX 570: вбудований звук (Realtek ALC897, контролер Intel 8C20 «ALZA»)
+# на macOS 26+ — VoodooHDA у /Library/Extensions.
+LOG=/var/log/mr9a-drivers-install.log
+exec >>"$LOG" 2>&1
+echo "=== $(date) ціль=$3 ==="
+T="$3"; [ "$T" = "/" ] && T=""
+SRC="$T/Library/Application Support/MR9A-Xeon-Drivers"
+
+DARWIN=$(uname -r | cut -d. -f1)
+if [ "$DARWIN" -lt 25 ]; then
+  echo "macOS старіша за 26 (Darwin $DARWIN): VoodooHDA не ставиться — там звук дає AppleALC (у завантажувачі його треба увімкнути)"
+  exit 0
+fi
+
+LE="$T/Library/Extensions"
+rm -rf "$LE/VoodooHDA.kext"
+cp -R "$SRC/VoodooHDA.kext" "$LE/" && chown -R root:wheel "$LE/VoodooHDA.kext" && chmod -R 755 "$LE/VoodooHDA.kext"
+touch "$LE"
+echo "VoodooHDA встановлено в $LE"
+
+# контролер звуку видно лише тоді, коли в BIOS увімкнено IntelRCSetup → PCH Configuration → Onboard Azalia
+if [ -z "$T" ]; then
+  if ioreg -rxc IOPCIDevice -w0 | grep -q '"IOName" = "pci8086,8c20"'; then
+    echo "контролер звуку 8086:8C20 видно"
+  else
+    echo "контролера звуку 8086:8C20 не видно — увімкніть у BIOS «Onboard Azalia» (IntelRCSetup → PCH Configuration)"
+  fi
+  # викликає запит дозволу в «Конфіденційність і безпека»
+  /usr/bin/kmutil load -p /Library/Extensions/VoodooHDA.kext
+fi
+exit 0

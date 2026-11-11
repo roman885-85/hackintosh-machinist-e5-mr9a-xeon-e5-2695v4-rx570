@@ -20,6 +20,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-This license covers only the repository's own files (documentation, config.plist).
-Third-party components (OpenCore, kexts, UEFI drivers, ACPI tables) remain under
-their own licenses — see README.
+This license covers only the repository's own files (documentation, scripts,
+config.plist). Third-party components (OpenCore, kexts, UEFI drivers, ACPI tables,
+VoodooHDA) remain under their own licenses — see README.

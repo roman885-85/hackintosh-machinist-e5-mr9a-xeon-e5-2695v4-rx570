@@ -1,0 +1,11 @@
+<html><head><meta charset="utf-8"><style>body{font-family:system-ui,-apple-system,Helvetica;font-size:13px}</style></head><body>
+<h2>Майже готово</h2>
+<ol>
+<li>Відкрийте «Параметри → Конфіденційність і безпека», прокрутіть униз до «Безпека» і натисніть «Дозволити» біля системного ПЗ VoodooHDA.
+Якщо такого рядка немає — розширення вже дозволено.</li>
+<li>Перезапустіть комп'ютер. Якщо в BIOS ще не увімкнено «Onboard Azalia» — під час перезапуску натисніть Del і ввімкніть його:
+<i>IntelRCSetup → PCH Configuration → Onboard Azalia → Enabled</i>, потім F4 — Save &amp; Exit (підказка клавіш є праворуч унизу екрана BIOS).</li>
+<li>Після перезапуску в «Параметри → Звук» з'являться виходи <i>Realtek ALC897: Line-out (Green Rear)</i> (зелене гніздо ззаду) і <i>Headphones (Green Front)</i> (навушники спереду) та входи <i>Microphone (Pink Rear)</i> і <i>Microphone (Pink Front)</i>. Виберіть потрібний. macOS може зробити вбудований мікрофон входом за замовчуванням — перевірте вхід у програмах, що записують звук.</li>
+</ol>
+<p>Що саме зроблено — у журналі <code>/var/log/mr9a-drivers-install.log</code>.</p>
+</body></html>

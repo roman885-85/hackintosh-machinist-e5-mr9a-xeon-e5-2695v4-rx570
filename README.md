@@ -13,7 +13,7 @@
 
 | macOS | Збірка | Результат |
 |---|---|---|
-| Tahoe 26.7.1 | 25G241 | ✅ усе обладнання з таблиці нижче; кілька перезапусків без попереджень OpenCore |
+| Tahoe 26.7.1 | 25G241 | ✅ усе обладнання з таблиці нижче; вбудований звук — через VoodooHDA ([нижче](#вбудований-звук)); кілька перезапусків без попереджень OpenCore |
 
 Інші версії macOS не перевірялися.
 
@@ -30,7 +30,7 @@
 | Мережа | Realtek RTL8111H, 1 Гбіт/с | ✅ RealtekRTL8111 2.4.2, позначена вбудованою (`en0`) |
 | Bluetooth | USB-донгл CSR8510 (0A12:0001) | ✅ BlueToolFixup; Magic Trackpad |
 | Wi-Fi | немає | — |
-| Звук на платі | контролера HDA система не бачить | ❌ (у macOS 26 і AppleHDA немає) |
+| Звук на платі | Realtek ALC897 (контролер Intel 8C20, в ACPI — `ALZA`) | ✅ VoodooHDA ([пакет драйверів](#вбудований-звук)); у BIOS має бути ввімкнено **Onboard Azalia** |
 | Звук | HDMI/DP відеокарти; USB-мікшер Behringer WING | ✅ |
 | Карти відеозахоплення | Blackmagic DeckLink SDI 4K і DeckLink Mini Recorder | ✅ драйвер Blackmagic |
 | USB | Intel XHCI 8C31 + EHCI | ✅ USB 2.0 і 3.0 (обидва сині порти — 5 Гбіт/с); див. [нюанси](#нюанси) |
@@ -41,7 +41,7 @@
 - **OpenCore 1.0.8** (офіційний RELEASE acidanthera), графічне меню OpenCanopy, інструмент OpenShell.
   Офіційний `ocvalidate` 1.0.8 зауважень не має.
 - **SMBIOS:** `MacPro7,1`; `UpdateSMBIOSMode = Custom` разом із `CustomSMBIOSGuid` — Windows бачить рідний SMBIOS плати.
-- **SecureBootModel:** `Disabled`; `csr-active-config` = `03080000` — лишилося від колишніх кореневих патчів OCLP, зараз вони не застосовуються.
+- **SecureBootModel:** `Disabled`; `csr-active-config` = `03080000` — лишилося від колишніх кореневих патчів OCLP (зараз вони не застосовуються); тепер воно ж дозволяє VoodooHDA з підписом ad-hoc.
 - **RestrictEvents:** `revpatch=cpuname,sbvmm,pci,diskread`, `revcpu=1`, `revcpuname` = «Intel® Xeon™ Processor» (назва процесора в «Про цей Mac»).
 - **ACPI:** `MaLd0n.aml` (набір Olarila).
 - **Kernel:** `Cpuid1Data C3060300` / `Cpuid1Mask FFFFFFFF`, `AppleXcpmCfgLock`, `AppleXcpmExtraMsrs`, `AppleXcpmForceBoost`,
@@ -50,6 +50,8 @@
 - **DeviceProperties:** `built-in` для NVMe — `PciRoot(0x0)/Pci(0x1,0x1)/Pci(0x0,0x0)` і мережевої карти —
   `PciRoot(0x0)/Pci(0x1C,0x5)/Pci(0x0,0x0)`. Шляхи залежать від слота: на іншій платі чи в іншому слоті перевірте їх
   (наприклад, через `gfxutil` або Hackintool).
+- **`PostInstall/VoodooHDA.kext`** і `tools/macos-package/` — драйвер вбудованого звуку для macOS 26 і сценарій збирання пакета
+  (див. [Вбудований звук](#вбудований-звук)); в EFI його немає.
 
 | Kext | Версія | Навіщо |
 |---|---|---|
@@ -83,12 +85,59 @@
 
 ## Після встановлення macOS
 
-Окремий пакет драйверів для цього комп'ютера **не потрібен**: усе, що потрібно для обладнання плати, вже є в EFI
-(мережа, Bluetooth, USB, датчики, відеокарта). Вбудованого звуку на цій платі macOS не бачить, Wi-Fi немає.
+Усе обладнання плати, крім вбудованого звуку, працює з EFI (мережа, Bluetooth, USB, датчики, відеокарта); Wi-Fi немає.
+Для вбудованого звуку — [пакет драйверів](#вбудований-звук) і один пункт у BIOS.
 Сторонні програми ставляться з сайтів виробників:
 - **Blackmagic DeckLink** — пакет [Desktop Video](https://www.blackmagicdesign.com/support/family/capture-and-playback) (тут працює драйвер 12.1);
 - **Behringer WING** — USB-аудіо класу «class compliant», драйвер для macOS не потрібен;
 - **NTFS із записом** — Tuxera NTFS або аналог (див. [нюанси](#нюанси) про ліцензію Tuxera).
+
+## Вбудований звук
+
+Кодек на платі — **Realtek ALC897**, контролер — Intel 8C20 (в ACPI він зветься `ALZA`). У macOS 26 немає AppleHDA,
+тому звук дає **VoodooHDA 3.6.8** — готовий пакет `MR9A-Xeon-Drivers-ДАТА.pkg` у [Releases](https://github.com/roman885-85/hackintosh-machinist-e5-mr9a-xeon-e5-2695v4-rx570/releases/latest).
+
+**1. Спершу BIOS.** На цьому комп'ютері контролер звуку був вимкнений у BIOS (найімовірніше, з часу перепрошивки), тож ні macOS,
+ні Windows його не бачили. Під час увімкнення натисніть **Del** → **IntelRCSetup → PCH Configuration → Onboard Azalia → Enabled**,
+потім **F4** (Save & Exit). Той самий пункт є й глибше: *PCH Configuration → Azalia Configuration → Azalia*.
+Перевірка в macOS: `ioreg -rc IOPCIDevice | grep pci8086,8c20` нічого не виводить, поки контролер вимкнений.
+
+**2. Пакет.** Ставиться **після** встановлення macOS. На macOS 26 і новіших кладе VoodooHDA в `/Library/Extensions`
+і викликає запит дозволу; на macOS 15 і старіших нічого не ставить (там звук дав би AppleALC, якого в цьому EFI немає; не перевірялося).
+1. Завантажте `.pkg` з Releases.
+2. Пакет не підписано сертифікатом Apple, тож macOS не відкриє його подвійним клацанням. Будь-який із трьох способів:
+   - зняти позначку завантаження і відкрити як звичайно:
+     ```bash
+     xattr -d com.apple.quarantine ~/Downloads/MR9A-Xeon-Drivers-*.pkg
+     ```
+   - або «Параметри → Конфіденційність і безпека» → «Усе одно відкрити» після першої спроби;
+   - або встановити з Терміналу без вікон:
+     ```bash
+     sudo installer -pkg ~/Downloads/MR9A-Xeon-Drivers-*.pkg -target /
+     ```
+3. Пройдіть кроки встановлювача.
+4. «Параметри → Конфіденційність і безпека» → «Дозволити» біля системного ПЗ VoodooHDA.
+5. Перезапустіть комп'ютер.
+
+У «Параметри → Звук» з'являться виходи *Realtek ALC897: Line-out (Green Rear)* (зелене гніздо ззаду) і
+*Realtek ALC897: Headphones (Green Front)* (навушники спереду), входи *Microphone (Pink Rear)* і
+*Realtek ALC897: Microphone (Pink Front)*. Звук HDMI/DP відеокарти, Behringer WING і карт Blackmagic лишається як був.
+macOS може зробити вбудований мікрофон входом за замовчуванням — перевірте вхід у програмах, що записують звук.
+
+Журнал встановлення: `/var/log/mr9a-drivers-install.log`. Зібрати пакет самому: `./tools/macos-package/build.sh`
+(версія — `VERSION=…`, інакше сьогоднішня дата).
+
+**Що змінено у VoodooHDA** — лише `Info.plist`: `IONameMatch` = `HDEF`, `HDAS`, `ALZA`, `AZAL` (на цій платі контролер
+зветься `ALZA`) і прибрано окрему особу для HDMI-звуку AMD, щоб HDMI/DP лишився за системним драйвером AppleGFXHDA.
+Підпис ad-hoc: kext вантажиться завдяки `csr-active-config` `03080000` з цього EFI.
+
+**Як прибрати** (порядок з `man kmutil`; на цьому комп'ютері не перевірявся):
+```bash
+sudo rm -rf /Library/Extensions/VoodooHDA.kext "/Library/Application Support/MR9A-Xeon-Drivers"
+kmutil rebuild
+sudo pkgutil --forget ua.local.mr9a.voodoohda
+```
+`kmutil rebuild` покаже зміни, попросить їх підтвердити й дозволити перебудову; після цього — перезапуск.
 
 ## Після скидання BIOS
 
@@ -98,6 +147,8 @@
   (`bcdedit /copy {bootmgr}` + шлях `\EFI\OC\OpenCore.efi`) і ставить його першим. Перед першим запуском впишіть у
   `restore_opencore.ps1` свій том EFI (як дізнатися — у коментарі на початку файлу);
 - **з меню BIOS** — у розділі завантаження додайте пункт із файлом `\EFI\OC\OpenCore.efi` на розділі EFI диска NVMe (якщо прошивка таке вміє).
+
+Якщо після скидання чи перепрошивки BIOS зник вбудований звук — знову ввімкніть **Onboard Azalia** ([Вбудований звук](#вбудований-звук), крок 1).
 
 ## Нюанси
 
@@ -112,6 +163,8 @@
 
 ## Історія змін
 
+- **2026-11-11** — вбудований звук (Realtek ALC897) на macOS 26: пакет драйверів із VoodooHDA 3.6.8 у Releases; знайдено пункт BIOS,
+  яким був вимкнений звуковий контролер (Onboard Azalia). Завантажувач OpenCore (EFI) не змінився.
 - **2026-11-10** — інструкція «Після встановлення macOS», сценарій Windows для повернення запису OpenCore після скидання BIOS.
 
 **10.10.2026:**
@@ -132,6 +185,7 @@
 - [CpuTscSync](https://github.com/acidanthera/CpuTscSync) — lvs1974; [USBInjectAll](https://github.com/RehabMan/OS-X-USB-Inject-All) — RehabMan;
   AppleMCEReporterDisabler; [RealtekRTL8111](https://github.com/Mieze/RTL8111_driver_for_OS_X) — Laura Müller.
 - `MaLd0n.aml` — Olarila; `HfsPlus.efi` (закритий драйвер Apple) і ресурси меню — [OcBinaryData](https://github.com/acidanthera/OcBinaryData).
+- [VoodooHDA](https://github.com/CloverHackyColor/VoodooHDA) — CloverHackyColor, GPL-2.0 (змінено лише `Info.plist`).
 
-Власні файли репозиторію (опис, `config.plist`) — [MIT](LICENSE). Користуєтеся на власний ризик;
+Власні файли репозиторію (опис, сценарії, `config.plist`) — [MIT](LICENSE). Користуєтеся на власний ризик;
 macOS дозволено встановлювати лише на обладнання Apple.

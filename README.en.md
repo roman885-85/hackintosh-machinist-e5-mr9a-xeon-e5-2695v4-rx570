@@ -13,7 +13,7 @@ and an AMD Polaris GPU. SMBIOS is **MacPro7,1**. **Windows 10** lives on other d
 
 | macOS | Build | Result |
 |---|---|---|
-| Tahoe 26.7.1 | 25G241 | ✅ all hardware listed below; several restarts with no OpenCore warnings |
+| Tahoe 26.7.1 | 25G241 | ✅ all hardware listed below; onboard audio via VoodooHDA ([below](#onboard-audio)); several restarts with no OpenCore warnings |
 
 Other macOS versions have not been tested.
 
@@ -30,7 +30,7 @@ Other macOS versions have not been tested.
 | Ethernet | Realtek RTL8111H, 1 Gbit/s | ✅ RealtekRTL8111 2.4.2, marked built-in (`en0`) |
 | Bluetooth | CSR8510 USB dongle (0A12:0001) | ✅ BlueToolFixup; Magic Trackpad |
 | Wi-Fi | none | — |
-| Onboard audio | no HDA controller visible to the OS | ❌ (and macOS 26 has no AppleHDA anyway) |
+| Onboard audio | Realtek ALC897 (Intel 8C20 controller, `ALZA` in ACPI) | ✅ VoodooHDA ([driver package](#onboard-audio)); **Onboard Azalia** must be enabled in the BIOS |
 | Audio | GPU HDMI/DP; Behringer WING USB mixer | ✅ |
 | Capture cards | Blackmagic DeckLink SDI 4K and DeckLink Mini Recorder | ✅ Blackmagic driver |
 | USB | Intel XHCI 8C31 + EHCI | ✅ USB 2.0 and 3.0 (both blue ports at 5 Gbit/s); see [quirks](#quirks) |
@@ -41,7 +41,7 @@ Other macOS versions have not been tested.
 - **OpenCore 1.0.8** (official acidanthera RELEASE), OpenCanopy picker, OpenShell tool.
   The official `ocvalidate` 1.0.8 reports no issues.
 - **SMBIOS:** `MacPro7,1`; `UpdateSMBIOSMode = Custom` together with `CustomSMBIOSGuid` — Windows sees the board's own SMBIOS.
-- **SecureBootModel:** `Disabled`; `csr-active-config` = `03080000` — left over from former OCLP root patches, which are not applied now.
+- **SecureBootModel:** `Disabled`; `csr-active-config` = `03080000` — left over from former OCLP root patches (not applied now); it also lets the ad-hoc signed VoodooHDA load.
 - **RestrictEvents:** `revpatch=cpuname,sbvmm,pci,diskread`, `revcpu=1`, `revcpuname` = "Intel® Xeon™ Processor" (CPU name in About This Mac).
 - **ACPI:** `MaLd0n.aml` (Olarila bundle).
 - **Kernel:** `Cpuid1Data C3060300` / `Cpuid1Mask FFFFFFFF`, `AppleXcpmCfgLock`, `AppleXcpmExtraMsrs`, `AppleXcpmForceBoost`,
@@ -50,6 +50,8 @@ Other macOS versions have not been tested.
 - **DeviceProperties:** `built-in` for the NVMe — `PciRoot(0x0)/Pci(0x1,0x1)/Pci(0x0,0x0)` and the NIC —
   `PciRoot(0x0)/Pci(0x1C,0x5)/Pci(0x0,0x0)`. The paths depend on the slot: on another board or slot, check them
   (e.g. with `gfxutil` or Hackintool).
+- **`PostInstall/VoodooHDA.kext`** and `tools/macos-package/` — the onboard audio driver for macOS 26 and the package build script
+  (see [Onboard audio](#onboard-audio)); it is not part of the EFI.
 
 | Kext | Version | Purpose |
 |---|---|---|
@@ -83,12 +85,59 @@ UEFI drivers: `OpenRuntime`, `OpenCanopy`, `ResetNvramEntry`, `HfsPlus`.
 
 ## After installing macOS
 
-This machine needs **no separate driver package**: everything the board's hardware needs is already in the EFI
-(Ethernet, Bluetooth, USB, sensors, GPU). macOS doesn't see onboard audio on this board, and there is no Wi-Fi.
+All of the board's hardware except onboard audio works from the EFI (Ethernet, Bluetooth, USB, sensors, GPU); there is no Wi-Fi.
+Onboard audio needs the [driver package](#onboard-audio) and one BIOS option.
 Third-party software comes from the vendors:
 - **Blackmagic DeckLink** — the [Desktop Video](https://www.blackmagicdesign.com/support/family/capture-and-playback) package (driver 12.1 runs here);
 - **Behringer WING** — class-compliant USB audio, no macOS driver needed;
 - **NTFS with write support** — Tuxera NTFS or similar (see [quirks](#quirks) about the Tuxera license).
+
+## Onboard audio
+
+The board's codec is **Realtek ALC897**, the controller is Intel 8C20 (named `ALZA` in ACPI). macOS 26 has no AppleHDA,
+so audio comes from **VoodooHDA 3.6.8** — a ready `MR9A-Xeon-Drivers-DATE.pkg` is in [Releases](https://github.com/roman885-85/hackintosh-machinist-e5-mr9a-xeon-e5-2695v4-rx570/releases/latest).
+
+**1. BIOS first.** On this machine the audio controller was disabled in the BIOS (most likely since a BIOS flash), so neither macOS
+nor Windows could see it. At power-on press **Del** → **IntelRCSetup → PCH Configuration → Onboard Azalia → Enabled**,
+then **F4** (Save & Exit). The same option also sits deeper: *PCH Configuration → Azalia Configuration → Azalia*.
+To check in macOS: `ioreg -rc IOPCIDevice | grep pci8086,8c20` prints nothing while the controller is disabled.
+
+**2. The package.** Install it **after** macOS is installed. On macOS 26 and newer it puts VoodooHDA into `/Library/Extensions`
+and triggers the approval prompt; on macOS 15 and older it installs nothing (AppleALC would handle audio there, but it is not in this EFI; not tested).
+1. Download the `.pkg` from Releases.
+2. The package is not signed with an Apple certificate, so macOS won't open it with a double-click. Use any of these:
+   - remove the download flag and open it as usual:
+     ```bash
+     xattr -d com.apple.quarantine ~/Downloads/MR9A-Xeon-Drivers-*.pkg
+     ```
+   - or System Settings → Privacy & Security → "Open Anyway" after the first attempt;
+   - or install from Terminal without the GUI:
+     ```bash
+     sudo installer -pkg ~/Downloads/MR9A-Xeon-Drivers-*.pkg -target /
+     ```
+3. Go through the installer steps.
+4. System Settings → Privacy & Security → "Allow" next to the VoodooHDA system software.
+5. Restart.
+
+System Settings → Sound then lists the outputs *Realtek ALC897: Line-out (Green Rear)* (green rear jack) and
+*Realtek ALC897: Headphones (Green Front)* (front headphones), and the inputs *Microphone (Pink Rear)* and
+*Realtek ALC897: Microphone (Pink Front)*. GPU HDMI/DP audio, the Behringer WING and the Blackmagic cards keep working as before.
+macOS may make the onboard microphone the default input — check the input in apps that record audio.
+
+Install log: `/var/log/mr9a-drivers-install.log`. To build the package yourself: `./tools/macos-package/build.sh`
+(set the version with `VERSION=…`, otherwise today's date).
+
+**What was changed in VoodooHDA** — only `Info.plist`: `IONameMatch` = `HDEF`, `HDAS`, `ALZA`, `AZAL` (the controller is
+`ALZA` on this board), and the separate AMD HDMI audio personality was removed so HDMI/DP stays with Apple's AppleGFXHDA.
+Ad-hoc signature: the kext loads thanks to `csr-active-config` `03080000` from this EFI.
+
+**How to remove** (procedure from `man kmutil`; not tested on this machine):
+```bash
+sudo rm -rf /Library/Extensions/VoodooHDA.kext "/Library/Application Support/MR9A-Xeon-Drivers"
+kmutil rebuild
+sudo pkgutil --forget ua.local.mr9a.voodoohda
+```
+`kmutil rebuild` lists the changes and asks you to confirm and authorize the rebuild; restart afterwards.
 
 ## After a BIOS reset
 
@@ -98,6 +147,8 @@ via "Windows Boot Manager" on the same EFI partition. To restore the entry:
   (`bcdedit /copy {bootmgr}` + path `\EFI\OC\OpenCore.efi`) and puts it first. Before the first run, set your EFI volume in
   `restore_opencore.ps1` (how to find it — see the comment at the top of the file);
 - **from the BIOS menu** — add a boot option pointing to `\EFI\OC\OpenCore.efi` on the NVMe EFI partition (if the firmware supports it).
+
+If onboard audio is gone after a BIOS reset or flash, enable **Onboard Azalia** again ([Onboard audio](#onboard-audio), step 1).
 
 ## Quirks
 
@@ -112,6 +163,8 @@ via "Windows Boot Manager" on the same EFI partition. To restore the entry:
 
 ## Changelog
 
+- **2026-11-11** — onboard audio (Realtek ALC897) on macOS 26: a driver package with VoodooHDA 3.6.8 in Releases; found the BIOS option
+  that had the audio controller disabled (Onboard Azalia). The OpenCore EFI is unchanged.
 - **2026-11-10** — "After installing macOS" notes, a Windows script to restore the OpenCore entry after a BIOS reset.
 
 **2026-10-10:**
@@ -131,6 +184,7 @@ via "Windows Boot Manager" on the same EFI partition. To restore the entry:
 - [CpuTscSync](https://github.com/acidanthera/CpuTscSync) — lvs1974; [USBInjectAll](https://github.com/RehabMan/OS-X-USB-Inject-All) — RehabMan;
   AppleMCEReporterDisabler; [RealtekRTL8111](https://github.com/Mieze/RTL8111_driver_for_OS_X) — Laura Müller.
 - `MaLd0n.aml` — Olarila; `HfsPlus.efi` (Apple's closed-source driver) and picker resources — [OcBinaryData](https://github.com/acidanthera/OcBinaryData).
+- [VoodooHDA](https://github.com/CloverHackyColor/VoodooHDA) — CloverHackyColor, GPL-2.0 (only `Info.plist` changed).
 
-This repository's own files (docs, `config.plist`) — [MIT](LICENSE). Use at your own risk;
+This repository's own files (docs, scripts, `config.plist`) — [MIT](LICENSE). Use at your own risk;
 Apple's license allows macOS on Apple hardware only.
